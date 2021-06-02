@@ -192,6 +192,14 @@ function inherit(father, son) {
     son.prototype = _
     son.prototype.constructor = son
 }
+
+//更简洁的写法 v2.00
+// function inherit2(subClass, superClass) {
+//     function f() {}
+//     f.prototype = superClass.prototype
+//     subClass.prototype = new f()
+//     subClass.prototype.constructor = subClass
+// }
 inherit(Person, Student)
 let mike = new Student('mike', 18)
 console.log(mike)
