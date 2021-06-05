@@ -188,3 +188,97 @@ const o = {
 
 o.a().b().a().b()
 ```
+
+### 委托模式
+当有多个对象需要处理同一个请求时，可以将这些请求交由一个对象去处理
+利用冒泡的事件委托就是这种模式
+
+### 数据访问对象模式
+用来抽象和封装一个对象对数据源进行访问和存储
+比如说设计一个数据访问对象来对localStorage来进行管理
+```javascript 
+function DataVisitor(nameSpace, splitSign) {
+    this.nameSpace = nameSpace
+    this.splitSign = splitSign || '|'
+}
+DataVisitor.prototype = {
+    status: {
+        SUCCESS: 0,
+        FAIL: 1,
+        OVERFLOW: 2, //存储空间溢出
+        TIMEOUT: 3 //过期
+    },
+    getInnerKey: function (key) {
+        return this.nameSpace + this.splitSign + key
+    },
+    get: function (key, Fn) {
+        key = this.getInnerKey(key)
+        let status = this.status.SUCCESS
+        let value = window.localStorage.getItem(key)
+
+        if (value) {
+            const index = value.indexOf(this.splitSign),
+                time = value.slice(0, index)
+
+            if (time > new Date().getTime() || time == -1) {
+                value = value.slice(index + this.splitSign.length)
+            } else {
+                value = null
+                status = this.status.TIMEOUT
+                window.localStorage.removeItem(key)
+            }
+        } else {
+            status = this.status.FAIL
+        }
+
+        Fn && Fn.call(this, status, key, value)
+        return value
+    },
+    set: function (key, value, Fn, expire) {
+        let status = this.status.SUCCESS
+        key = this.getInnerKey(key)
+        expire = typeof expire === 'number' ? new Date().getTime() + expire : -1
+
+        try {
+            //value的数据类型是不是要区分一下?
+            //存储的形式如: nameSpace|key = 1233213000|value
+            window.localStorage.setItem(key, expire + this.splitSign + value)
+        } catch (error) {
+            status = this.status.OVERFLOW
+        }
+
+        Fn && Fn.call(this, status, key, value)
+        return value
+    },
+    remove: function (key, Fn) {
+        let status = this.status.FAIL
+        key = this.getInnerKey(key)
+        value = window.localStorage.getItem(key)
+
+        //因为不管key存不存在，removeItem总能执行
+        if (value) {
+            value = value.slice(value.indexOf(this.splitSign) + this.splitSign.length)
+            window.localStorage.removeItem(key)
+            status = this.status.SUCCESS
+        }
+
+        Fn && Fn.call(this, status, key, value)
+    }
+}
+
+let learnInPro = new DataVisitor('learnInPro', '|')
+
+learnInPro.set('name', '1233', function (status, key, value) {
+    console.log(status, key, value)
+}, 1000 * 3)
+
+learnInPro.get('name', function (status, key, value) {
+    console.log(status, key, value)
+})
+
+learnInPro.remove('name', function (status, key, value) {
+    console.log(status, key, value)
+})
+```
+
+### 等待者模式
