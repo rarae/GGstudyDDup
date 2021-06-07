@@ -282,3 +282,98 @@ learnInPro.remove('name', function (status, key, value) {
 ```
 
 ### 等待者模式
+对多个异步进程进行监听，对未来事件进行统一管理，可以控制异步函数的执行顺序
+```javascript
+function Waiter() {
+    let dfd = null //存放所有异步事件 存储的是dfd对象
+    let doneArr = [] //存放成功的回调
+    let failArr = [] //存放失败的回调
+
+    this.when = function () {
+        dfd = Array.prototype.slice.call(arguments) //arguments是类数组对象
+        for (let i = 0; i < dfd.length; i++) {
+            const d = dfd[i]
+            // 如果dfd所在同步代码里面，那么resolve和reject就会有一个为true ，我们是要存储异步的
+            if (!d || d.resolved || d.rejected || !(d instanceof Defer)) {
+                dfd.splice(i, 1)
+            }
+        }
+        return this
+    }
+    this.done = function () {
+        const args = Array.prototype.slice.call(arguments)
+        doneArr = doneArr.concat(args)
+        return this
+    }
+    this.fail = function () {
+        const args = Array.prototype.slice.call(arguments)
+        failArr = failArr.concat(args)
+        return this
+    }
+
+    this.Deferred = function () {
+        return new Defer()
+    }
+
+    function Defer() {
+        this.resolved = false
+        this.rejected = false
+    }
+    Defer.prototype = {
+        resolve: function () {
+            this.resolved = true
+            // 如果有一个未完成
+            for (let i = 0; i < dfd.length; i++) {
+                if (!dfd[i].resolved) {
+                    return
+                }
+            }
+            // 如果异步事件都成功完成
+            // 执行done的回调函数
+            _exec(doneArr)
+        },
+        reject: function () {
+            this.rejected = true
+            // 执行fail的回调函数
+            _exec(failArr)
+        }
+    }
+
+    function _exec(arr) {
+        for (let i=0; i<arr.length; i++) {
+            arr[i] && arr[i]()
+        }
+    }
+}
+
+const waiter = new Waiter()
+
+const async1 = function () {
+    const dfd = waiter.Deferred()
+    setTimeout(function () {
+        console.log('async1 done')
+        //dfd的状态不是同步改变的
+        dfd.resolve()
+    }, 1000)
+    return dfd
+}
+
+const async2 = function () {
+    const dfd = waiter.Deferred()
+    setTimeout(function () {
+        console.log('async2 done')
+        dfd.resolve()
+    }, 1000 * 2)
+    return dfd
+}
+
+waiter.when(async1(), async2()).done(function () {
+    console.log('success')
+}).fail(function () {
+    console.log('fail')
+})
+```
+
+### MVC模式
+
+### MVVM模式
