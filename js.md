@@ -207,9 +207,68 @@ console.log(mike instanceof Person)
 ```
 
 # js执行
-## var变量声明提升
+## js代码是怎么执行的 执行栈->执行上下文->变量对象
+![执行](https://img-blog.csdnimg.cn/2021061318010125.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+1. 浏览器开辟一个==执行环境栈（ECStack）==， js的所有代码都会到这里执行，并且存储基本类型值
+2. 为了区分全局和其他作用域，会有全局执行上下文（EC（G））和其他执行上下文（私有上下文，块级上下文）
+3. 全局执行上下文里面有一个全局变量对象（VO（G）），记录了当前上下文的所声明的变量，当然还会记录全局对象（GO），比如说window
+4. var a = 12; 执行的三个过程
+   1. 先在栈区开辟一个内存空间，用来存放基础数据类型12，得到一个地址
+   2. 声明a变量，添加到当前上下文的变量对象中
+   3. 将a和第一步得到的地址进行关联
+   4. ？这里有一个问题：变量与指针关联，那怎么知道变量要去栈找值还是到堆找值？是根据地址的位数吗，堆的地址是0x000000形式的
+
+## 阿里面试题
+要考虑运算的优先级，优先级没分析对，肯定会做错
+![阿里面试题](https://img-blog.csdnimg.cn/20210613184753749.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+
+## 重点 有函数的执行过程  和浏览器的垃圾回收机制
+![函数](https://img-blog.csdnimg.cn/20210613195822217.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+
+预备知识：
+- js中的上下文
+  - 全局上下文EC（G）
+  - 函数执行会形成私有上下文EC（FN）
+  - 块级私有上下文
+  - 。。。
+- 创建一个函数（跟定义变量是类似的）
+  1. 开辟一个堆内存空间，以“字符串”的形式存放代码，并且存储了它的作用域\[\[scope]]，在哪个上下文中创建的，作用域就是谁
+  2. 声明一个函数名称的全局变量，并存储在全局变量对象中VO（G）
+  3. 将第一步的地址跟第二步的变量做一个关联
+
+函数执行的过程（重点）：
+1. 形成一个==私有的上下文（EC（FN））==，（AO）私有变量对象也都有了，然后进栈执行
+2. 在代码执行之前
+   1. 初始化作用域链scope-chain, <当前自己的私有上下文，函数的作用域>，链的右侧是当前上下文的“上级上下文”
+   2. 初始化this
+   3. 初始化arguments
+   4. 形参赋值，在当前的私有上下文中，在AO中创建一个形参变量，并把传递的实参跟它关联起来
+   5. 变量提升
+3. 代码执行
+4. 出栈释放
+
+## 有闭包的执行过程
+![闭包](https://img-blog.csdnimg.cn/20210613221207117.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+跟有函数的执行过程是一样的，只不过是这个私有上下文不会被释放
+>闭包：函数的一种执行机制
+函数执行会形成一个私有上下文，如果当前上下文的某些内容（一般是指堆内存地址）被其他上下文的变量占用，则当前上下文不能够被释放，（是根据浏览器的垃圾回收机制决定的）
+
+>还有一种说法是只要函数执行就会形成闭包，只不过正常的函数运行一下子就被释放掉了，而有一种不能够被马上释放
+保护/保存机制
+
+在程序上有一种一般性的写法：
+```javascript
+let fn = (function() {
+    return function() {  //在当前上下文中创建的堆内存地址被全局上下文的fn变量占用
+        console.log('这种自执行函数的写法，天然就是为闭包而生的')
+    }
+})();
+```
+## let VS var
+
+### var存在变量声明提升
 js是解释性语言，js引擎在执行js代码时有两个步骤
-1. 解释，即扫描所有的代码，然后把==var声明提升到顶端（let const是不会提升的）==，先提升函数，后提升变量（注意变量定义是不提升的，但是函数的函数体是会提升的）
+1. 解释，在当前上下文(全局、函数私有、块级私有)，扫描所有的代码，然后把==var声明提升到顶端（let const是不会提升的）==，*先提升函数，后提升变量*（注意变量定义是不提升的，但是函数的函数体是会提升的）
 2. 执行
 ```javascript cmd="node"
 console.log(a)
@@ -234,7 +293,8 @@ foo = function() {   //foo被提升，但只是一个变量，不能用foo()执�
     console.log(1)
 }
 ```
-## 顶层对象
+### var跟顶层对象有关系
+在全局上下文中，用var声明的变量，除了是一个全局变量，还相当于给GO（全局对象window）添加一个属性。但是用let声明的变量，就只是一个全局变量，跟GO毫无关系。
 变量不用let const关键字，相当于在顶层对象比如global, window里添加属性
 ```javascript cmd="node"
 a = 1  //不用let等，表示在宿主global对象下定义了a===1
@@ -247,21 +307,48 @@ var a = 1
 console.log(window.a) 
 ```
 
-## var--全局作用域，let--块级作用域
+```javascript
+//这种情况下不会去找window.n，除非你先声明了n
+//过程是这样的，先去找全局变量有没有n，没有，再去找全局对象有没有n属性，也没有，然后报错
+console.log(n) //ReferenceError: n is not defined
+```
+
+### var可以重复声明
+在同一个上下文中，var可以重复声明。但是let不可以，不管你之前用什么方式（var等）声明了，都不可以
+```javascript
+//在词法分析阶段，如果发现使用const/let声明的变量有重复的，直接报语法错误
+var n = 1;
+let n = 1; //SyntaxError: Identifier 'n' has already been declared
+```
+
+### 存在暂时性死区（浏览器暂存的BUG）
+```javascript
+//基于typeof检测一个未被定义的变量，程序不会报错，输出undefined
+console.log(typeof n) //undefined
+```
+
+
+### var--全局作用域 let--块级作用域
+let/const/function会产生==块级私有上下文==
 var会穿透for，if等， 等同于“全局变量”
 ```javascript cmd="node" 
-console.log(a)
-for (let i=1; i<=3; i++) {
-    var a = 1   
+// 本质是没有创建一个私有上下文，始终都在全局上下文中执行，在VO（G）中会有a
+{
+    var a = 1;  
 }
+console.log(a)  //undefined
 ```
-let是块级作用域，不能穿透for，如果声明在块内，那么只在块内有效
-```javascript cmd="node"
-console.log(a)
-for (let i=1; i<=3; i++) {
-    let a = 1
+
+let是块级作用域，不能穿透{}，如果声明在块内，那么只在块内有效
+```javascript 
+//本质是在{}块内形成一个私有上下文，let变量a会存在当前上下文的AO
+{
+    let a = 1 
+    console.log(a)  // 1
 }
+console.log(a) //ReferenceError: a is not defined
 ```
+
 ==不论是var，还是let，在js执行前都会有一个静态语法分析的过程，都会先得到变量标识符==
 ```javascript cmd="node"
 console.log(a)
@@ -273,9 +360,68 @@ console.log(a)
 let a //let是通过禁止访问未绑定值来实现的
 ```
 
-## 执行上下文
-### this
-调用函数时使用的引用，决定了函数执行时的对象
+### for (let i=0; i<5; i++) \{...\}
+for循环体首先会产生一个“块级上下文”循环体，用来控制一整个循环体 =》 父亲
+以后每一次循环都会再产生新的私有块级上下文 =》 儿子
+父亲每次都会吧i传递给儿子，儿子操作自己的私有i后会返回给父亲
+![图片](https://img-blog.csdnimg.cn/20210614203557940.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+
+```javascript
+// 追求性能极致的写法，不产生私有上下文，也就不会有入栈出栈的操作，跟var一个样了
+let i=0;
+for(; i<5; i++) {
+    console.log(i)
+}
+console.log(i)
+```
+
+## this
+叫函数的执行主体
+函数执行主体：谁把函数执行
+函数执行上下文：函数是在哪里执行的
+>全局上下文中的this是window，私有上下文中没有自己的this，所用到的this都是所处上级上下文中的this
+1. 事件绑定：给当前元素的某个事件行为绑定方法，当事件触发的时候，方法执行中的this是当前元素本身
+```javascript
+document.body.onClick = function() {
+    console.log(this)   //body
+}
+```
+2. 普通函数的执行
+    1. 没有 对象.fn，this就是window(严格模式下是undefined)
+    2. 有 对象.fn，this就是对象
+    3. 匿名函数（自执行函数/回调函数(把函数当作参数传递到另一个函数中执行)）如果没有经过特殊处理，一般是window/undefined
+
+# 数据类型转换
+规则：对象->字符串->数字,  布尔->数字
+```javascript
+// [] -> '' -> 0 
+// false -> 0
+console.log([] == false)  //true
+```
+
+```javascript
+// ![] -> 把[]转换成布尔再取反 -> false
+console.log(![] == false) //true
+```
+
+```javascript
+Number('') //0
+Number('10') //10
+Number('10px') //NaN
+Number(true) //1
+Number(false) //0
+Number(null) //0
+Number(undefined) //NaN
+Number((Symbol(10))) //报错
+Number(BigInt(10)) //10
+```
+
+parseInt转换规则：以字符串的方式向后查找，直到非数字字符即停止，把前面的数字转换成数字，如果一个都没有的话就为NaN
+
+```javascript
+{}+0 //0 左边的{}认为是一个代码块，不参与运算，运算知识处理+0 => 0
+({}+0) // "[object Object]0"
+```
 
 # 函数式编程
 纯函数：
