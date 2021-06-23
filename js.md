@@ -1,211 +1,5 @@
 [toc]
 
-# 原型
-js是面向对象的编程语言
-面向对象有两种实现方式：
-1. 基于类的方式（Java、C++、python），静态编译好的，运行时不能修改类模板
-2. 基于原型的方式，运行时可以动态修改类模板，可操作性更强
-   
-原型系统的“复制操作”有两种实现方式：
-1. 不是真正的复制，只是在对象中持有原始对象的引用（js用的就是这种方式）
-2. 真正的复制
-
-两句话概括原型系统：
-1. 对象的原型用Object.getPrototypeOf()获取，其实也就是对象的__proto__属性
-2. 对于一个属性，如果在对象中找不到，那么就沿着它的原型往上找，直到找到或者原型为空
-
-通过toString方法来获得内置类的名称：
-```javascript {cmd="node"}
-
-var o = new Object;
-var n = new Number;
-var s = new String;
-var b = new Boolean;
-var d = new Date;
-var arg = function(){ return arguments }();
-var r = new RegExp;
-var f = new Function;
-var arr = new Array;
-var e = new Error;
-console.log([o, n, s, b, d, arg, r, f, arr, e].map(v => Object.prototype.toString.call(v))); 
-```
-
-## 对象的__proto__和函数的prototype
-```javascript
-// 1.对象的原型
-// 每个对象都有原型,用Object.getPrototypeOf()来获取
-console.log(Object.getPrototypeOf({})); // [Object: null prototype] {}
-
-function Student(name, grade) {
-    this.name = name;
-    this.grade = grade;
-}
-
-const stu = new Student('xiaoMing', 6);
-console.log(Object.getPrototypeOf(stu)); // {}
-
-// 设置对象的原型
-Object.setPrototypeOf(stu, {
-    a: 1
-})
-console.log(Object.getPrototypeOf(stu)) // { a: 1 }
-
-
-// 2.函数和prototype
-// 所有函数都有prototype属性  箭头函数没有
-function Apple() {}
-const apple = new Apple()
-
-console.log(apple instanceof Apple) // true
-console.log(apple.constructor) // [Function: Apple]   在这里 apple本身没有constructor属性，这里是通过原型链查找得来的
-console.log(Apple.prototype) // {}
-console.log(Apple.prototype.constructor === Apple) // true
-
-// 对象实例的原型链
-console.log(Object.getPrototypeOf(apple) === Apple.prototype) // true
-console.log(Object.getPrototypeOf(Apple.prototype) === Object.prototype)  // true  这里就可以说Apple 继承 Object
-console.log(Object.getPrototypeOf(Object.prototype) === null) // true
-
-// 函数的原型链
-console.log(Object.getPrototypeOf(Apple) === Function.prototype) // true
-console.log(Object.getPrototypeOf(Function.prototype) === Object.prototype) // true  这里就可以说Function 继承 Object
-console.log(Object.getPrototypeOf(Object.prototype) === null) // true
-
-
-// 自己的instance方法
-function myInstanceof(left, right) {
-     let proto = Object.getPrototypeOf(left),
-        prototype = right.prototype
-
-     while (true) {
-         if (proto===null) return false
-         if (proto===prototype) return true
-
-         proto = Object.getPrototypeOf(proto)
-     }
-}
-```
-
-## new 发生了什么
-（1）首先创建了一个新的空对象
-（2）设置原型，将对象的原型设置为函数的 prototype 对象。
-（3）让函数的 this 指向这个对象，执行构造函数的代码（为这个新对象添加属性）
-（4）判断函数的返回值类型，如果是值类型，返回创建的对象。如果是引用类型，就返回这个引用类型的对象。
-```javascript
-function objectFactory() {
-    let newObject = null,
-      constructor = Array.prototype.shift.call(arguments),
-      result = null;
-  
-    // 参数判断
-    if (typeof constructor !== "function") {
-      console.error("type error");
-      return;
-    }
-  
-    // 新建一个空对象，对象的原型为构造函数的 prototype 对象
-    newObject = Object.create(constructor.prototype);
-  
-    // 将 this 指向新建对象，并执行函数
-    result = constructor.apply(newObject, arguments);
-  
-    // 判断返回对象
-    let flag =
-      result && (typeof result === "object" || typeof result === "function");
-  
-    // 判断返回结果
-    return flag ? result : newObject;
-  }
-  
-  // 使用方法
-  // objectFactory(构造函数, 初始化参数);
-```
-## 原型继承
-js继承的两个必要方式：
-1. 子类原型指向父类实例，这样就实现了属性和方法的共享
-2. 借助构造函数，实现属性和方法的独享
-```javascript cmd="node"
-// 组合继承：使用构造函数和原型来实现继承
-// 缺点：调用两次父类构造函数
-function Person(name='mike') {
-    this.name = name
-}
-function Student(name='mike', age=8) {
-    Person.call(this, name)
-    this.age = age
-}
-//下面一行不能写Student.prototype = Person.prototype
-//因为这样如果新增子类特有的方法，父类也能用，不满足继承的特性
-//下面调用了一次父类构造函数，但是其实我们不需要它的实例
-//寄生方法就是解决这个问题的
-//发现另外一种方法，利用循环，这个方法可以用于多继承
-// for (let key in Person.prototype) {
-//     Student.prototype[key] = Person.prototype[key]
-// }
-Student.prototype = new Person()
-Student.prototype.constructor = Student
-
-let mike = new Student('mike', 18)
-let ray = new Student('ray', 14)
-console.log(mike)
-console.log(ray)
-```
-```javascript cmd="node"
-//寄生组合继承
-function Person(name='mike') {
-    this.name = name
-}
-function Student(name='mike', age=8) {
-    Person.call(this, name)
-    this.age = age
-}
-function create(prototype) {
-    //用一个空实例来保存prototype
-    function Super() {}
-    Super.prototype = prototype
-    return new Super()
-}
-Student.prototype = create(Person.prototype)
-Student.prototype.constructor = Student
-
-let mike = new Student('mike', 18)
-let ray = new Student('ray', 14)
-console.log(mike)
-console.log(ray)
-```
-```javascript cmd="node"
-//寄生组合继承的封装写法
-function Person(name='mike') {
-    this.name = name
-}
-function Student(name='mike', age=18) {
-    Person.call(this, name)
-    this.age = age
-}
-function create(prototype) {
-    function Super() {}
-    Super.prototype = prototype
-    return new Super()
-}
-function inherit(father, son) {
-    let _ = create(father.prototype)
-    son.prototype = _
-    son.prototype.constructor = son
-}
-
-//更简洁的写法 v2.00
-// function inherit2(subClass, superClass) {
-//     function f() {}
-//     f.prototype = superClass.prototype
-//     subClass.prototype = new f()
-//     subClass.prototype.constructor = subClass
-// }
-inherit(Person, Student)
-let mike = new Student('mike', 18)
-console.log(mike)
-console.log(mike instanceof Person)
-```
-
 # js执行
 ## js代码是怎么执行的 执行栈->执行上下文->变量对象
 ![执行](https://img-blog.csdnimg.cn/2021061318010125.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
@@ -264,11 +58,76 @@ let fn = (function() {
     }
 })();
 ```
+### 闭包应用
+```javascript
+//使用闭包实现“惰性函数”，提升性能
+//只需在第一次执行的时候走if，其余都直接走重构的getCss
+function getCss(ele, attr) {
+    if (window.getComputedStyle) {
+        getCss = function(ele, attr) {
+            return window.getComputedStyle(ele)[attr];
+        }
+    } else {
+        getCss = function(ele, attr) {
+            return ele.currentStyle[attr];
+        }
+    }
+    return getCss(ele, attr);
+}
+```
+```javascript
+//防抖  频繁点击，只操作一次，多用于点击
+/*
+immediate 控制是开始触发还是结尾触发,默认是结尾触发
+*/
+function debounce(cbFn, wait=300, immediate=false) {
+    let now = immediate && timer===null;
+    let timer = null;
+
+    return function (...params) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            timer = null;
+            !immediate ? cbFn.call(this, ...params) : null;
+        }, wait);
+
+        now ? cbFn.call(this, ...params) : null;
+    }
+}
+```
+
+```javascript
+//节流  多用于滚动scroll和输入过程中的模糊匹配keyDown
+function throttle(cbFn, wait = 300) {
+    let timer = null,
+        previous = 0; //记录上一次操作的时间
+
+    return function (...params) {
+        let now = new Data(),
+            remaining = wait - (now - previous);
+
+        if (remaining <= 0) { //两次操作的时间间隔超过了wait
+            clearTimeout(timer);
+            timer = null;
+            previous = now;
+            cbFn.call(this, ...params);
+        } else if (!timer) { //两次操作的时间间隔没有超过wait， 且没有设置定时器
+            timer = setTimeout(() => {
+                timer = null;
+                previous = new Date();
+                cbFn.call(this, ...params);
+            }, remaining);
+        }
+    }
+}
+```
+
+
 ## let VS var
 
 ### var存在变量声明提升
 js是解释性语言，js引擎在执行js代码时有两个步骤
-1. 解释，在当前上下文(全局、函数私有、块级私有)，扫描所有的代码，然后把==var声明提升到顶端（let const是不会提升的）==，*先提升函数，后提升变量*（注意变量定义是不提升的，但是函数的函数体是会提升的）
+1. 解释，在当前上下文(全局、函数私有、块级私有)，扫描所有的代码，然后把==var声明提升到顶端（let const是不会提升的）==，~~先提升函数，后提升变量~~,按顺序提升（注意变量定义是不提升的，但是函数的函数体是会提升的）
 2. 执行
 ```javascript cmd="node"
 console.log(a)
@@ -391,6 +250,227 @@ document.body.onClick = function() {
     2. 有 对象.fn，this就是对象
     3. 匿名函数（自执行函数/回调函数(把函数当作参数传递到另一个函数中执行)）如果没有经过特殊处理，一般是window/undefined
 
+# 原型
+js是面向对象的编程语言
+面向对象有两种实现方式：
+1. 基于类的方式（Java、C++、python），静态编译好的，运行时不能修改类模板
+2. 基于原型的方式，运行时可以动态修改类模板，可操作性更强
+   
+原型系统的“复制操作”有两种实现方式：
+1. 不是真正的复制，只是在对象中持有原始对象的引用（js用的就是这种方式）
+2. 真正的复制
+
+两句话概括原型系统：
+1. 对象的原型用Object.getPrototypeOf()获取，其实也就是对象的__proto__属性
+2. 对于一个属性，如果在对象中找不到，那么就沿着它的原型往上找，直到找到或者原型为空
+
+通过toString方法来获得内置类的名称：
+```javascript {cmd="node"}
+
+var o = new Object;
+var n = new Number;
+var s = new String;
+var b = new Boolean;
+var d = new Date;
+var arg = function(){ return arguments }();
+var r = new RegExp;
+var f = new Function;
+var arr = new Array;
+var e = new Error;
+console.log([o, n, s, b, d, arg, r, f, arr, e].map(v => Object.prototype.toString.call(v))); 
+```
+
+## 对象的__proto__和函数的prototype
+```javascript
+// 1.对象的原型
+// 每个对象都有原型,用Object.getPrototypeOf()来获取
+console.log(Object.getPrototypeOf({})); // [Object: null prototype] {}
+
+function Student(name, grade) {
+    this.name = name;
+    this.grade = grade;
+}
+
+const stu = new Student('xiaoMing', 6);
+console.log(Object.getPrototypeOf(stu)); // {}
+
+// 设置对象的原型
+Object.setPrototypeOf(stu, {
+    a: 1
+})
+console.log(Object.getPrototypeOf(stu)) // { a: 1 }
+
+
+// 2.函数和prototype
+// 所有函数都有prototype属性  箭头函数没有
+function Apple() {}
+const apple = new Apple()
+
+console.log(apple instanceof Apple) // true
+console.log(apple.constructor) // [Function: Apple]   在这里 apple本身没有constructor属性，这里是通过原型链查找得来的
+console.log(Apple.prototype) // {}
+console.log(Apple.prototype.constructor === Apple) // true
+
+// 对象实例的原型链
+console.log(Object.getPrototypeOf(apple) === Apple.prototype) // true
+console.log(Object.getPrototypeOf(Apple.prototype) === Object.prototype)  // true  这里就可以说Apple 继承 Object
+console.log(Object.getPrototypeOf(Object.prototype) === null) // true
+
+// 函数的原型链
+console.log(Object.getPrototypeOf(Apple) === Function.prototype) // true
+console.log(Object.getPrototypeOf(Function.prototype) === Object.prototype) // true  这里就可以说Function 继承 Object
+console.log(Object.getPrototypeOf(Object.prototype) === null) // true
+
+
+// 自己的instance方法
+function myInstanceof(left, right) {
+     let proto = Object.getPrototypeOf(left),
+        prototype = right.prototype
+
+     while (true) {
+         if (proto===null) return false
+         if (proto===prototype) return true
+
+         proto = Object.getPrototypeOf(proto)
+     }
+}
+```
+
+## 原型重定向
+```javascript
+function Person() {};
+Person.prototype.say = function () {};
+Person.prototype.eat = function () {};
+// 重定向的时候使用Object.assign来覆盖已有的方法，和添加新方法，避免直接重写
+Person.prototype = Object.assign(Person.prototype, {
+    say(): {},
+    jump(): {},
+})
+```
+
+
+## 函数的prototype和__proto__
+![图片](https://img-blog.csdnimg.cn/20210621230116549.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+
+## new 发生了什么
+（1）首先创建了一个新的空对象
+（2）设置原型，将对象的原型设置为函数的 prototype 对象。
+（3）让函数的 this 指向这个对象，执行构造函数的代码（为这个新对象添加属性）
+（4）判断函数的返回值类型，如果是值类型，返回创建的对象。如果是引用类型，就返回这个引用类型的对象。
+```javascript
+function objectFactory() {
+    let newObject = null,
+      constructor = Array.prototype.shift.call(arguments),
+      result = null;
+  
+    // 参数判断
+    if (typeof constructor !== "function") {
+      console.error("type error");
+      return;
+    }
+  
+    // 新建一个空对象，对象的原型为构造函数的 prototype 对象
+    newObject = Object.create(constructor.prototype);
+  
+    // 将 this 指向新建对象，并执行函数
+    result = constructor.apply(newObject, arguments);
+  
+    // 判断返回对象
+    let flag =
+      result && (typeof result === "object" || typeof result === "function");
+  
+    // 判断返回结果
+    return flag ? result : newObject;
+  }
+  
+  // 使用方法
+  // objectFactory(构造函数, 初始化参数);
+```
+## 原型继承
+js继承的两个必要方式：
+1. 子类原型指向父类实例，这样就实现了属性和方法的共享
+2. 借助构造函数，实现属性和方法的独享
+```javascript cmd="node"
+// 组合继承：使用构造函数和原型来实现继承
+// 缺点：调用两次父类构造函数
+function Person(name='mike') {
+    this.name = name
+}
+function Student(name='mike', age=8) {
+    Person.call(this, name)
+    this.age = age
+}
+//下面一行不能写Student.prototype = Person.prototype
+//因为这样如果新增子类特有的方法，父类也能用，不满足继承的特性
+//下面调用了一次父类构造函数，但是其实我们不需要它的实例
+//寄生方法就是解决这个问题的
+//发现另外一种方法，利用循环，这个方法可以用于多继承
+// for (let key in Person.prototype) {
+//     Student.prototype[key] = Person.prototype[key]
+// }
+Student.prototype = new Person()
+Student.prototype.constructor = Student
+
+let mike = new Student('mike', 18)
+let ray = new Student('ray', 14)
+console.log(mike)
+console.log(ray)
+```
+```javascript cmd="node"
+//寄生组合继承
+function Person(name='mike') {
+    this.name = name
+}
+function Student(name='mike', age=8) {
+    Person.call(this, name)
+    this.age = age
+}
+function create(prototype) {
+    //用一个空实例来保存prototype
+    function Super() {}
+    Super.prototype = prototype
+    return new Super()
+}
+Student.prototype = create(Person.prototype)
+Student.prototype.constructor = Student
+
+let mike = new Student('mike', 18)
+let ray = new Student('ray', 14)
+console.log(mike)
+console.log(ray)
+```
+```javascript cmd="node"
+//寄生组合继承的封装写法
+function Person(name='mike') {
+    this.name = name
+}
+function Student(name='mike', age=18) {
+    Person.call(this, name)
+    this.age = age
+}
+function create(prototype) {
+    function Super() {}
+    Super.prototype = prototype
+    return new Super()
+}
+function inherit(father, son) {
+    let _ = create(father.prototype)
+    son.prototype = _
+    son.prototype.constructor = son
+}
+
+//更简洁的写法 v2.00
+// function inherit2(subClass, superClass) {
+//     function f() {}
+//     f.prototype = superClass.prototype
+//     subClass.prototype = new f()
+//     subClass.prototype.constructor = subClass
+// }
+inherit(Person, Student)
+let mike = new Student('mike', 18)
+console.log(mike)
+console.log(mike instanceof Person)
+```
 # 数据类型转换
 规则：对象->字符串->数字,  布尔->数字
 ```javascript
@@ -574,4 +654,27 @@ function ajax(method, url, options) {
 
     })
 }
+```
+
+# 重写reduce
+```javascript
+let arr = [1, 2, 3, 4];
+let reduce = function(arr, cbFn, initValue) {
+    let result = initValue,
+        i = 0;
+    if (typeof result === 'undefined') {
+        result = arr[0];
+        i = 1;
+    }
+    for (; i<arr.length; i++) {
+        result = cbFn(result, arr[i], i);
+    }
+    return result;
+}
+
+let sum = reduce(arr, function(pre, item, index) {
+    return pre + item;
+});
+
+console.log(sum)
 ```
