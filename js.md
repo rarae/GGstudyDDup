@@ -351,6 +351,93 @@ Person.prototype = Object.assign(Person.prototype, {
 
 ## 函数的prototype和__proto__
 ![图片](https://img-blog.csdnimg.cn/20210621230116549.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+要注意的就是Function.prototype不是一个对象，而是一个“空函数”
+
+
+## 基本数据类型的自动装箱和解装箱
+```javascript
+let num1 = 10; //基本数据类型值，存在栈区，也是Number的实例
+let num2 = new Number(10);//应用数据类型值，存在堆区
+/* 自动装箱 */
+num1.toFixed(2);//先把10转换成Number实例，再去调用Number.prototype的toFixed方法
+num2.toFixed(2);//直接调用Number.prototype.toFixed()方法
+/* 自动解装箱 
+底层处理机制：
+1. 首先调用num2[Symbol.toPrimitive]方法，有返回则结束
+2. 再调用num2.valueOf()方法，有返回则结束
+3. 如果还是没有，则调用toNumber()或者toString()方法。
+*/
+console.log(num2 + 10);
+```
+
+## call apply bind
+```javascript
+function fn () {};
+const obj = {};
+fn.call(obj);//先从fn.__proto__找到Function.prototype.call方法，执行的时候把执行的主体修改为obj
+fn.call();//严格模式下,this->undefined 非严格模式下this->window
+
+// bind的用处
+document.body.onClick = fn;  // 点击事件触发的时候,fn执行，fn的this是window
+setTimeout(fn, 1000);  // 时间到了的时候fn执行，fn的this也是window
+// 我想让上面fn执行的时候this不再是window，并且还想要传递参数，可以这么写，有两种方法：
+// 第一种，绑定一个匿名函数，里面执行自己想要的方法
+document.body.onClick = function (ev) {
+    fn.call(obj, 10, 20);
+}
+// 第二中，bind方法
+document.body.onClick = fn.bind(obj, 10, 20);
+// 在react里面，第一种方法就类似于{()=>delTotoById(id)}，第二种就类似于{delTodoById.bind(null, id)}
+```
+
+```javascript
+// 自己实现call
+const obj = {
+    name: '123',
+    age: 123,
+}
+
+function fn (x, y) {
+    console.log(this);
+    return x + y;
+}
+
+Function.prototype.call = function(obj, ...rest) {
+    // this->fn
+    obj == null ? obj = window : null; // obj如果是null/undefined，则让它指向window
+    !/^(object|function)$/.test(typeof obj) ? obj = Object(obj) : null; //基本数据类型值不能设置属性，必须保证obj是引用数据类型值
+    let key = Symbol('unique'),
+        res;
+    obj[key] = this;
+    res = obj[key](...rest);
+    delete obj[key];
+    return res;
+}
+
+console.log(fn.call(10, 1, 2));
+console.log(obj)
+```
+
+```javascript
+// 自己的bind方法
+const obj = {
+    name: '123',
+    age: 123,
+}
+
+function fn(x, y) {
+    console.log(this, x + y);
+}
+
+Function.prototype.bind = function(obj, ...rest) {
+    // this->fn
+    return () => {
+        return this.call(obj, ...rest);
+    }
+}
+
+setTimeout(fn.bind(obj, 10, 20), 1000);
+```
 
 ## new 发生了什么
 （1）首先创建了一个新的空对象
@@ -388,8 +475,8 @@ function objectFactory() {
 ```
 ## 原型继承
 js继承的两个必要方式：
-1. 子类原型指向父类实例，这样就实现了属性和方法的共享
-2. 借助构造函数，实现属性和方法的独享
+1. 子类原型指向父类实例，这样就实现了属性和方法的共享  公有属性的继承
+2. 借助构造函数，实现属性和方法的独享  私有属性的继承
 ```javascript cmd="node"
 // 组合继承：使用构造函数和原型来实现继承
 // 缺点：调用两次父类构造函数
@@ -397,17 +484,20 @@ function Person(name='mike') {
     this.name = name
 }
 function Student(name='mike', age=8) {
-    Person.call(this, name)
+    Person.call(this, name) //在子类，把父类的构造当作普通函数执行
     this.age = age
 }
 //下面一行不能写Student.prototype = Person.prototype
 //因为这样如果新增子类特有的方法，父类也能用，不满足继承的特性
 //下面调用了一次父类构造函数，但是其实我们不需要它的实例
 //寄生方法就是解决这个问题的
-//发现另外一种方法，利用循环，这个方法可以用于多继承
+// 发现另外一种方法，利用循环，这个方法可以用于多继承
 // for (let key in Person.prototype) {
 //     Student.prototype[key] = Person.prototype[key]
 // }
+
+// ## 发现另外一种方法,最好的方法就是这样的，这样都不用修复构造函数了
+// Student.prototype.__proto__ = Person.prototype;
 Student.prototype = new Person()
 Student.prototype.constructor = Student
 
@@ -431,6 +521,7 @@ function create(prototype) {
     Super.prototype = prototype
     return new Super()
 }
+// 下面这句话就等同于：Student.prototype = Object.create(Person.prototype)
 Student.prototype = create(Person.prototype)
 Student.prototype.constructor = Student
 
@@ -471,6 +562,42 @@ let mike = new Student('mike', 18)
 console.log(mike)
 console.log(mike instanceof Person)
 ```
+
+# 数据类型检测
+1. typeof 返回的是字符串，有number/boolean/string/undefined/symbol/bigint/function/object
+   1. typeof的原理：以二进制的形式实现的，对象都是000......
+      1. 所以无法分清楚是 正则/日期/数组/普通对象
+      2. null的二进制值是000，所以typeof null === 'object'
+2. instanceof
+   1. 用它来检测 正则/日期/数组/普通对象
+      1. obj instanceof RegExp
+      2. obj instanceof Date
+      3. obj instanceof Array
+      4. obj instanceof Object 这个永远成立 所以不能用
+   2. 无法应用到原始数据类型检测:  10 instanceof Number 
+   3. obj的原型修改之后，检测结果就不准了
+3. constructor
+   1. 用它来检测 正则/日期/数组/普通对象
+      1. obj.constructor === RegExp
+      2. obj.constructor === Date
+      3. obj.constructor === Array
+      4. obj.constructor === Object
+   2. 可以检测基本数据类型值 10.constructor === Number 原因是浏览器会自动将10装箱
+   3. obj的原型修改之后，检测结果就不准了
+4. Object.prototype.toString.call
+   1. Number/String/boolean/Symbol/BigInt/Object/RegExp/Date/Function/Array 的原型上都有toString，所以obj.toString()的时候都是找自己原型上的,而重写的toString都是用来转换成String的，所以必须要用Object.prototype.toString.call
+   2. 返回结果是 "[object 对象[Symbol.toStringTag] || 对象.构造函数(不会被修改) || Object]"
+```javascript cmd='node'
+class Person {
+    get[Symbol.toStringTag]() {
+        return 'Person';
+    }
+}
+let class2Type = {},
+    toString = class2Type.toString;
+console.log(toString.call(new Person)); //[object Person]
+```
+
 # 数据类型转换
 规则：对象->字符串->数字,  布尔->数字
 ```javascript
