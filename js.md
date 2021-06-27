@@ -354,7 +354,7 @@ Person.prototype = Object.assign(Person.prototype, {
 要注意的就是Function.prototype不是一个对象，而是一个“空函数”
 
 
-## 基本数据类型的自动装箱和解装箱
+## 基本数据类型的自动装箱和 ==解装箱==
 ```javascript
 let num1 = 10; //基本数据类型值，存在栈区，也是Number的实例
 let num2 = new Number(10);//应用数据类型值，存在堆区
@@ -437,6 +437,26 @@ Function.prototype.bind = function(obj, ...rest) {
 }
 
 setTimeout(fn.bind(obj, 10, 20), 1000);
+```
+
+```javascript
+/// .call.call.call.call
+function A () {
+    console.log('A function');
+    console.log(this.name);
+}
+
+function B () {
+    console.log('B function');
+    console.log(this.name);
+}
+
+// 让A.call函数执行，执行主体是B。所以要弄清楚call是怎么执行的
+// 其实就是让B添加一个属性，使得B.A.call可以执行
+// 执行的参数是B
+// 最终就是A.call(B)执行
+A.call.call(B, B);   //B function
+                     //B
 ```
 
 ## new 发生了什么
@@ -563,6 +583,230 @@ console.log(mike)
 console.log(mike instanceof Person)
 ```
 
+# 异步
+## promise基础语法
+```javascript
+// 基础语法
+let p1 = new Promise(function (resolve, reject) {
+    resolve(1); //[[PromiseState]]->fulfilled, [[PromiseResult]]->1
+    // reject(0); //[[PromiseState]]->rejected, [[PromiseResult]]->0
+    // console.log(a); //[[PromiseState]]->rejected, [[PromiseResult]]->出错原因
+    console.log(3);
+});
+
+p1.then(result => {
+    //第一个函数 [[PromiseState]]->fulfilled result -> [[PromiseResult]]
+    console.log(result);
+}, reason => {
+    //第一个函数 [[PromiseState]]->rejected reason -> [[PromiseResult]]
+    console.log(reason);
+});
+```
+
+```javascript cmd='node'
+let p1 = new Promise(resolve => {
+    setTimeout(() => {
+        resolve(1); //修改promiseState和promiseResult，但是去通知注册方法执行是异步的
+        console.log(1);  // 所以输出的结果是 1  2
+    }, 1000);
+});
+p1.then(result => {  // 注册方法是同步的
+    console.log(2);
+});
+```
+## promise复杂语法
+```javascript cmd='node'
+let p1 = new Promise(resolve => {
+    resolve('ok');
+});
+
+p1 = Promise.resolve('ok'); // 就是上面写法的简写版
+
+let p2 = p1.then(result => {  // p1执行的结果会返回一个新的promise实例
+    console.log(result);
+    return 'p1的任一方法执行成功了,此消息就是p2的promiseResult';
+},
+reason => {
+    console.log(reason);
+});
+
+/*
+p2的promiseState和promiseResult分析
+1. 如果在p1的方法中有返回一个新的promise, 则结果取决于这个新的promise
+2. 如果没有第一步，则：p1的任意一个方法执行成功，则promiseState为fulfilled，promiseResult为方法返回的结果
+*/ 
+p2.then(result => {
+    console.log(result);
+})
+```
+
+```javascript cmd='node'
+// 如果没有执行第二个方法的函数或者写个null, 则会抛出异常
+// 顺延机制
+Promise.reject('no').then(result => { // 按理说reject会执行第二个方法，但是由于没有写，所以会顺延下去
+    console.log(result);
+}, null).then(null, reason => {  //相当于浏览器给我们加了 reason => Promise.reject(reason)
+    console.log(reason);
+});
+
+// 利用这种顺延机制，我们通常都会在最后面加一个catch 这样就能够传递到错误
+// .catch(reason => {}) 相当于 .then(null, reason => {})
+```
+
+## 手写promise.all
+```javascript cmd='node'
+Promise.all = (arr) => {
+    return new Promise((resolve, reject) => {
+        let index = 0,
+            results = [];
+
+        for (let i = 0; i < arr.length; i++) {
+            let item = arr[i];
+            if (!(item instanceof Promise)) {
+                index++;
+                results[i] = item;
+                if (index === arr.length) {
+                    resolve(results);
+                }
+            } else {
+                item.then(result => {
+                    index++;
+                    results[i] = result;
+                    if (index === arr.length) {
+                        resolve(results);
+                    }
+                }).catch(reason => {
+                    reject(reason);
+                })
+            }
+        }
+    })
+}
+
+let p1 = Promise.resolve('p1');
+let p2 = Promise.resolve('p2');
+let p3 = Promise.resolve('p3');
+let pALl = Promise.all([19, p1, p2, p3, 10]);
+pALl.then(result => {
+    console.log(result);
+}).catch(reason => {
+    console.log(reason);
+})
+```
+
+## 手写promise串行
+[csdn比较好的讲解](https://blog.csdn.net/yyk5928/article/details/103624315?utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control)
+```javascript cmd='node'
+Promise.seq = (arr) => {
+    let p = arr[0];
+        results = [];
+    for (let i = 1; i <= arr.length; i++) {
+        p = p.then(result => {
+            results.push(result);
+            if (i<arr.length) {
+                return arr[i];
+            } else {
+                return Promise.resolve(results);
+            }
+        });
+    }
+    return p;
+}
+
+let p1 = Promise.resolve('p1');
+let p2 = Promise.resolve('p2');
+let p3 = Promise.resolve('p3');
+let pSeq = Promise.seq([p1, p2, p3, p1]);
+pSeq.then(result => {
+    console.log('成功', result);
+}, reason => {
+    console.log('失败', reason);
+})
+```
+
+## 手写promise
+```javascript cmd='node'
+// es5写法 还没有实现顺延机制，对付面试足够了, 顺延机制看视频45
+function MyPromise(executor) {
+    // 保证传进来的是个函数
+    if (typeof executor !== 'function') {
+        throw new Error(`${executor} is not a function`);
+    }
+
+    // self表示当前promise实例
+    var self = this;
+    self.promiseState = 'pending';
+    self.promiseResult = undefined;
+    self.onFulfilledCbFn = [];
+    self.onRejectedBcFn = [];
+
+    function run(state, result) {
+        if (self.promiseState !== 'pending') return;
+        self.promiseState = state;
+        self.promiseResult = result;
+        
+        // executor是异步的时候处理
+        setTimeout(function() {
+            var arr = state === 'fulfilled' ? self.onFulfilledCbFn : self.onRejectedBcFn;
+            for (var i = 0; i < arr.length; i++) {
+                var cbFn = arr[i];
+                typeof cbFn === 'function' && cbFn(self.promiseResult);
+            }
+        });
+        
+    }
+
+    // 修改promiseState和promiseResult
+    function resolve(result) {
+        run('fulfilled', result);
+    };
+
+    function reject(reason) {
+        run('rejected', reason);
+    };
+
+    // 立即执行executor, 注意报错也会reject
+    try {
+        executor(resolve, reject);
+    } catch (error) {
+        reject(error);
+    }
+}
+
+MyPromise.prototype = {
+    constructor: MyPromise,
+    then: function (onFulfilled, onRejected) {
+        var self = this;
+        switch (self.promiseState) {
+            case 'fulfilled':
+                setTimeout(function () { //使用setTimeout来实现异步
+                    onFulfilled(self.promiseResult);
+                });
+                break;
+            case 'rejected':
+                setTimeout(function () {
+                    onRejected(self.promiseResult);
+                });
+                break;
+            default: // 当executor里面的是异步操作的时候要这样做
+                self.onFulfilledCbFn.push(onFulfilled);
+                self.onRejectedBcFn.push(onRejected);
+                break;
+        }
+    },
+    catch: function () {},
+    finally: function () {}
+}
+
+var fn = (resolve, reject) => setTimeout(()=>{resolve('ok')}, 1000);
+var p1 = new MyPromise(fn);
+p1.then(result => {
+    console.log(`成功 ${result}`);
+}, reason => {
+    console.log(`失败 ${reason}`);
+})
+```
+
 # 数据类型检测
 1. typeof 返回的是字符串，有number/boolean/string/undefined/symbol/bigint/function/object
    1. typeof的原理：以二进制的形式实现的，对象都是000......
@@ -628,6 +872,39 @@ parseInt转换规则：以字符串的方式向后查找，直到非数字字符
 ```javascript
 {}+0 //0 左边的{}认为是一个代码块，不参与运算，运算知识处理+0 => 0
 ({}+0) // "[object Object]0"
+```
+==对象到基本数据类型值的转换过程==
+```javascript
+let a = {          //使用浏览器对象到基本数据类型转换的一些机制
+    initValue: 1,
+    [Symbol.toPrimitive]() {  //第一种方法
+        return this.initValue++;
+    },
+    // valueOf() {  //第二种方法
+    //     return this.initValue++;
+    // },
+    // toString() { // 第三种方法
+    //     return this.initValue++; 
+    // },
+};
+
+if (a == 1 && a == 2 && a == 3) {
+    console.log('OK');
+}
+```
+
+```javascript
+// 另外一种方法 数据劫持的方法 ，用这种方法===也能适用
+var i=1;
+Object.defineProperty(window, 'a', {
+    get() {
+        return i++;
+    }
+})
+
+if (a == 1 && a == 2 && a == 3) {
+    console.log('OK');
+}
 ```
 
 # 函数式编程
