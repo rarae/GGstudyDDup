@@ -653,6 +653,22 @@ Promise.reject('no').then(result => { // 按理说reject会执行第二个方法
 // .catch(reason => {}) 相当于 .then(null, reason => {})
 ```
 
+## async/await
+1. await后面通常加一个promise实例，如果不是则自动转为Promise.resolve(param)
+2. 遇到await，则必须等到后面的promise实例的state变化，后面才继续执行（不是立即的， 是把await下面的代码作为一个“异步的微任务”存放到事件队列中）
+3. 一般用try/catch来处理await 后面reject的任务
+```javascript cmd='node'
+async function fn () {
+    await 1;
+    console.log(2);
+}
+fn();
+console.log(3);  // 先输出3 后输出2
+```
+
+## 一道经典的题目
+![图片](https://img-blog.csdnimg.cn/20210628231015899.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzMzNTE4NzQ0,size_16,color_FFFFFF,t_70)
+
 ## 手写promise.all
 ```javascript cmd='node'
 Promise.all = (arr) => {
@@ -697,31 +713,53 @@ pALl.then(result => {
 ## 手写promise串行
 [csdn比较好的讲解](https://blog.csdn.net/yyk5928/article/details/103624315?utm_medium=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.control)
 ```javascript cmd='node'
-Promise.seq = (arr) => {
-    let p = arr[0];
-        results = [];
-    for (let i = 1; i <= arr.length; i++) {
-        p = p.then(result => {
-            results.push(result);
-            if (i<arr.length) {
-                return arr[i];
-            } else {
-                return Promise.resolve(results);
-            }
-        });
-    }
+const createClock = (log, time) => new Promise(resolve => {
+    setTimeout(() => {
+        resolve(log);
+    }, time);
+});
+
+let p1 = createClock(1, 5000); //p1 执行5秒
+let p2 = createClock(2, 1000);
+let p3 = createClock(3, 1000);
+
+// 1. 串行调用就是要达到这个效果  依次输出 1 2 3
+// p1.then(r=>{
+//     console.log(r);
+//     return p2;
+// }).then(r=>{
+//     console.log(r);
+//     return p3;
+// }).then(r=>{
+//     console.log(r);
+// })
+
+// 2. 使用forEach实现
+Promise.all = function (arr) {
+    let p = Promise.resolve('OK'); // 先生成一个实例
+    arr.forEach(item => {
+        // 第一个then用来接收'OK'，其实是辅助的promise实例，主要目的是在其resolve里面返回一个新的promise实例
+        // 第二个then才是真正的要执行的promise实例
+        p = p.then(() => item).then(result => {
+            console.log(result);
+            return 'OK' // 其实不返回也可以，因为执行成功浏览器会默认返回成功的promise实例
+        })
+    })
     return p;
 }
 
-let p1 = Promise.resolve('p1');
-let p2 = Promise.resolve('p2');
-let p3 = Promise.resolve('p3');
-let pSeq = Promise.seq([p1, p2, p3, p1]);
-pSeq.then(result => {
-    console.log('成功', result);
-}, reason => {
-    console.log('失败', reason);
-})
+Promise.all([p1, p2, p3]).then(result => {
+    console.log(result);  // 输出的就是 'ok'
+});
+
+// 3. 使用async/await实现
+async function seq (arr) {
+    for (const item of arr) {
+        let res = await item;
+        console.log(res); // 依次输出1 2 3
+    }
+}
+seq([p1, p2, p3]);
 ```
 
 ## 手写promise
