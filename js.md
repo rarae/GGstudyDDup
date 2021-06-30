@@ -1122,3 +1122,31 @@ let sum = reduce(arr, function(pre, item, index) {
 
 console.log(sum)
 ```
+
+# 对象数组的unique方法
+```javascript
+let obj = [
+    {key: 1},
+    {key: 2},
+    {key: 3},
+    {key: 1},
+    {key: 3}
+]
+
+Array.prototype.unique1 = function(key) {
+    return this.filter((item, index, arr) => {
+        const currentKey = item[key];
+        return arr.findIndex(el => el[key]===currentKey) === index;
+    });
+}
+
+Array.prototype.unique2 = function(key) {
+    const s = new Set();
+    return this.reduce((pre, item) => {
+        s.has(item[key]) ? null : s.add(item[key]) && pre.push(item);
+        return pre;
+    }, []);
+}
+
+console.log(obj.unique2('key'));
+```
