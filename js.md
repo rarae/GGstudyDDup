@@ -764,6 +764,56 @@ async function seq (arr) {
 seq([p1, p2, p3]);
 ```
 
+```javascript
+const p = x => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            console.log(x+1);
+            resolve(x+1);
+        }, 1000);
+    });
+}
+
+// 1. 根据上一个请求的结果来发起下一个请求 like this
+// p(0).then(result => {
+//     return p(result);
+// }).then(result => {
+//     return p(result);
+// }).then(result => {
+//     console.log(result);
+// })
+
+// 2. async很容易可以实现
+// async function fn (n) {
+//     let x = 0;
+//     for (let i=0; i<n; i++) {
+//         x = await p(x);
+//     }
+// }
+// fn(4);
+
+// 3. async实际上是用generator和promise实现的
+function* generator(x, n) {
+    for (let i=0; i<n; i++) {
+        x = yield p(x);
+    }
+}
+function AsyncFunc(generator, ...params) {
+    const iter = generator(...params);
+    const next = x => {
+        // 第一次是这样的 value=>一个resolve为1的promise实例 done=>false
+        let {value, done} = iter.next(x); 
+        if (done) return;
+        value.then(result => {
+            next(result);
+        })
+    }
+    // 第一次执行，什么都不传
+    next();
+}
+AsyncFunc(generator, 0, 5);
+```
+
 ## 手写promise
 ```javascript cmd='node'
 // es5写法 还没有实现顺延机制，对付面试足够了, 顺延机制看视频45
@@ -846,6 +896,12 @@ p1.then(result => {
     console.log(`失败 ${reason}`);
 })
 ```
+
+# 事件
+1. 事件是什么？
+   1. 事件是浏览器赋予元素的默认行为，可以说是天生就有的，当某些行为触发的时候，相关的事件都会触发。（鼠标点击行为 触发元素点击事件）
+2. 事件绑定
+   1. 给元素的默认行为绑定方法，当事件触发的时候，方法执行 （点击事件触发 绑定的方法执行）
 
 # 数据类型检测
 1. typeof 返回的是字符串，有number/boolean/string/undefined/symbol/bigint/function/object
@@ -1150,3 +1206,39 @@ Array.prototype.unique2 = function(key) {
 
 console.log(obj.unique2('key'));
 ```
+
+# iterator
+```javascript
+let obj = {
+    name: 10,
+    age: 20,
+    sex: 30,
+    [Symbol('ddd')]: 3
+};
+
+obj[Symbol.iterator] = function () {  //如果想在遍历的时候没有这个属性，可以把它放在Object.prototype
+    let self = this,
+        index = 0,
+        keys = [
+            ...Object.getOwnPropertyNames(self),
+            ...Object.getOwnPropertySymbols(self)
+        ]
+    return {
+        next() {
+            return index >= keys.length ? {
+                done: true,
+                value: undefined
+            } : {
+                done: false,
+                value: keys[index++]
+            };
+        }
+    }
+}
+
+for (const e of obj) {
+    console.log(e);
+}
+```
+
+generator是天生就是有这种返回结果的
