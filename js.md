@@ -902,7 +902,19 @@ p1.then(result => {
    1. 事件是浏览器赋予元素的默认行为，可以说是天生就有的，当某些行为触发的时候，相关的事件都会触发。（鼠标点击行为 触发元素点击事件）
 2. 事件绑定
    1. 给元素的默认行为绑定方法，当事件触发的时候，方法执行 （点击事件触发 绑定的方法执行）
-
+   2. DOM0: 每一个dom元素对象上都有自己类似“onXXX”的私有属性，给这些属性赋值就是dom0事件绑定, 特点是只能当前元素的某个事件行为绑定一个方法，执行效率高，只在目标/冒泡阶段触发，是按ev.path来的。
+   3. DOM2: 元素.addEventListner(event, fn, [捕获/冒泡])
+      1. 原理：每一个元素都往原型链上找到EventTarget原型上的add.../remove方法
+      2. 绑定的一般不是匿名函数，因为移除的时候需要三个参数一致
+3. 事件对象
+   1. 是默认传递给绑定方法的参数
+4. 默认行为
+   1. 浏览器会给元素赋予默认的行为操作
+      1. 比如说：点击a标签页面跳转
+   2. 我们可以用ev.preventDefault()来禁用这些行为
+      1. 禁用邮件菜单 window.oncontextmenu = function (ev) {ev.preventDefault();}
+      2. a标签取消跳转和锚点定位 href="javascript:;" 或者用ev.prevent...
+5. ev.stopPropagation() 阻止事件冒泡
 # 数据类型检测
 1. typeof 返回的是字符串，有number/boolean/string/undefined/symbol/bigint/function/object
    1. typeof的原理：以二进制的形式实现的，对象都是000......
