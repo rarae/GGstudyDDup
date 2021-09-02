@@ -963,7 +963,7 @@ p1.then(result => {
    1. 浏览器会给元素赋予默认的行为操作
       1. 比如说：点击a标签页面跳转
    2. 我们可以用ev.preventDefault()来禁用这些行为
-      1. 禁用邮件菜单 window.oncontextmenu = function (ev) {ev.preventDefault();}
+      1. 禁用右键菜单 window.oncontextmenu = function (ev) {ev.preventDefault();}
       2. a标签取消跳转和锚点定位 href="javascript:;" 或者用ev.prevent...
 5. ev.stopPropagation() 阻止事件冒泡
 # 数据类型检测
