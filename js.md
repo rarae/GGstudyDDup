@@ -193,9 +193,10 @@ var会穿透for，if等， 等同于“全局变量”
 ```javascript cmd="node" 
 // 本质是没有创建一个私有上下文，始终都在全局上下文中执行，在VO（G）中会有a
 {
-    var a = 1;  
+  var a = 1;
 }
-console.log(a)  //undefined
+console.log(a); //1
+console.log(window.a); // 1
 ```
 
 let是块级作用域，不能穿透{}，如果声明在块内，那么只在块内有效
