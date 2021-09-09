@@ -1306,3 +1306,32 @@ for (const e of obj) {
 ```
 
 generator是天生就是有这种返回结果的
+
+# 实现jsonp
+```javascript
+(function (w) {
+  function jsonp(option) {
+    // 0. 产生不同的函数名
+    var callbackName = "itlike" + Math.random().toString().substr(2);
+    // 1. 函数挂载在全局
+    w[callbackName] = function (data) {
+      option.success(data);
+      // 用完后就删除掉script标签
+      document.body.removeChild(scriptEle);
+    };
+    option.url = option.url + "?callback=" + callbackName;
+    var scriptEle = document.createElement("script");
+    scriptEle.src = option.url;
+    document.body.appendChild(scriptEle);
+  }
+  w.jsonp = jsonp;
+})(window);
+
+// 使用
+jsonp({
+  url: "www.baidu.com",
+  success: function (data) {
+    console.log(data);
+  },
+});
+```
