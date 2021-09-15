@@ -1335,3 +1335,24 @@ jsonp({
   },
 });
 ```
+# 柯里化不定参数
+```javascript
+function sum(x) {
+  // arguments数组相加
+  return Array.prototype.slice.call(x).reduce((prev, cur) => prev + cur);
+}
+
+function add() {
+  let res = sum(arguments);
+  function innerAdd() {
+    const tmp = sum(arguments);
+    res += tmp;
+    return innerAdd;
+  }
+  innerAdd.toString = function () {
+    return res;
+  };
+  return innerAdd;
+}
+console.dir(add(1)(2, 3).toString());
+```
