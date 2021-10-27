@@ -1,42 +1,44 @@
-let str = [5, 4, 2, 3, 1];
-var trap = function (arr) {
-  function mergeSort(arr, l, r) {
-    if (l < r) {
-      let mid = getIndex(arr, l, r);
-      quickSort(arr, l, mid - 1);
-      quickSort(arr, mid + 1, r);
-    }
-  }
+function myPromise(text) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(() => {
+      resolve(text);
+    }, 3000 * Math.random());
+  });
+}
 
-  function merge(arr, l, r, mid) {
-    let tmp = [];
-    let lStart = l,
-      rStart = mid + 1;
-    while (lStart <= mid && rStart <= r) {
-      if (arr[lStart] <= arr[rStart]) {
-        tmp.push(arr[lStart]);
-        lStart++;
-      } else {
-        tmp.push(arr[rStart]);
-        rStart++;
+function dispatch(arr, max) {
+  let res = new Array(arr.length).fill(-1);
+  const total = arr.length;
+  let received = 0;
+  let chanel = 0;
+
+  return new Promise((resolve, reject) => {
+    function next() {
+      if (arr.length > 0) {
+        let p = arr.shift();
+        const [index, promise] = p;
+        promise.then((r) => {
+          res[index] = r;
+          console.log(r);
+          received++;
+          if (arr.length > 0) {
+            next();
+          }
+          if (received >= total) {
+            resolve(res);
+          }
+        });
       }
     }
-    while (lStart <= mid) {
-      tmp.push(arr[lStart]);
-      lStart++;
+    while (chanel < max) {
+      chanel++;
+      next();
     }
-    while (rStart <= r) {
-      tmp.push(arr[rStart]);
-      rStart++;
-    }
-    let index = 0;
-    for (let i = l; i <= r; i++) {
-      arr[i] = tmp[index++];
-    }
-  }
+  });
+}
 
-  mergeSort(arr, 0, arr.length - 1);
-  return arr;
-};
-
-console.log(trap(str));
+let index = 1;
+let arr = new Array(10).fill(0).map((v, index) => [index, myPromise(index++)]);
+dispatch(arr, 2).then((res) => {
+  console.log(res);
+});
