@@ -1148,6 +1148,37 @@ console.log('##############')
 console.log(b)
 ```
 
+## BFS深拷贝
+```javascript
+let obj = {
+  name: 123,
+  date: {
+    data: 2121,
+  },
+};
+
+function deepCopy(oldObj) {
+  const queue = [oldObj];
+  while (queue.length > 0) {
+    let q = queue.shift(),
+      { value, parent } = q;
+    for (let key in value) {
+      let item = value[key];
+      if (typeof item === "object") {  // 这里没有做类型判断，主要是写一个bfs的思路
+        parent[key] = {};
+        queue.push({ value: item, parent: parent[key] });
+      } else {
+        parent[key] = item;
+      }
+    }
+  }
+}
+
+let newObj = {};
+deepCopy({ value: obj, parent: newObj });
+console.log(newObj);
+```
+
 # repeat函数
 ```javascript
 function repeat (func, times, wait) { 

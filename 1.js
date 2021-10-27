@@ -1,27 +1,42 @@
-function f(nums) {
-  const target = 1;
-  const index = [];
-  // 求出所有target所在的位置
-  for (let i = 0; i < nums.length; i++) {
-    if (nums[i] === target) {
-      index.push(i + 1);
+let str = [5, 4, 2, 3, 1];
+var trap = function (arr) {
+  function mergeSort(arr, l, r) {
+    if (l < r) {
+      let mid = getIndex(arr, l, r);
+      quickSort(arr, l, mid - 1);
+      quickSort(arr, mid + 1, r);
     }
   }
-  // 其实就是找出在固定窗口内，非target元素的最少数量
-  const count = index.length;
-  let res = Infinity;
-  for (let i = 0; i < index.length; i++) {
-    const left = index[i],
-      right = left + count - 1;
-    let tmpRes = 0;
-    for (let j = left; j <= right; j++) {
-      if (index.indexOf(j) === -1) {
-        tmpRes++;
+
+  function merge(arr, l, r, mid) {
+    let tmp = [];
+    let lStart = l,
+      rStart = mid + 1;
+    while (lStart <= mid && rStart <= r) {
+      if (arr[lStart] <= arr[rStart]) {
+        tmp.push(arr[lStart]);
+        lStart++;
+      } else {
+        tmp.push(arr[rStart]);
+        rStart++;
       }
     }
-    res = Math.min(res, tmpRes);
+    while (lStart <= mid) {
+      tmp.push(arr[lStart]);
+      lStart++;
+    }
+    while (rStart <= r) {
+      tmp.push(arr[rStart]);
+      rStart++;
+    }
+    let index = 0;
+    for (let i = l; i <= r; i++) {
+      arr[i] = tmp[index++];
+    }
   }
-  return res;
-}
 
-console.log(f([1, 1, 0, 0, 1]));
+  mergeSort(arr, 0, arr.length - 1);
+  return arr;
+};
+
+console.log(trap(str));
